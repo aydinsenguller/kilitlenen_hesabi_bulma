@@ -1,0 +1,2 @@
+# kilitlenen_hesabi_bulma
+kilitlenen_hesabi_bulma
