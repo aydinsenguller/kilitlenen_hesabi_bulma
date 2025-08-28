@@ -1,0 +1,56 @@
+Write-Output $message
+
+
+# Kullanıcı adı girin
+$userName = "username"
+
+# Active Directory modülünü import et
+Import-Module ActiveDirectory
+
+# Kullanıcının detaylarını almak için komut
+try {
+    $user = Get-ADUser -Identity $userName -Properties LockedOut, LastLogonDate, Description
+    if ($user) {
+        Write-Output "Kullanıcı: $($user.SamAccountName)"
+        Write-Output "Açıklama: $($user.Description)"
+        Write-Output "Son Giriş Tarihi: $($user.LastLogonDate)"
+        Write-Output "Hesap Kilitli: $($user.LockedOut)"
+    }
+}
+catch {
+    Write-Output "Hata: $_"
+}
+
+# Olayları almak için Get-WinEvent komutunu kullanırken hata kontrolü yapalım
+try {
+    $events = Get-WinEvent -FilterHashtable @{
+        LogName='Security'
+        Id=4740
+        StartTime=(Get-Date).AddDays(-7) # Son 7 günün verilerini kontrol eder, bunu ihtiyaca göre değiştirebilirsiniz
+    } | Where-Object { $_.Message -like "*$userName*" }
+
+    # Olayları detaylı olarak incele
+    foreach ($event in $events) {
+        $message = $event.Message
+
+        # IP adresini ayrıştırmak için düzenli ifadeyi kullan
+        if ($message -match "Source Network Address:\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})") {
+            $sourceIP = $matches[1]
+        } else {
+            $sourceIP = "Bilgi Bulunamadı"
+        }
+
+        # Olayın diğer detaylarını ayrıştır
+        $user = ($message -split "Account Name:\s+")[1] -split "`r`n" | Select-Object -First 1
+        $time = $event.TimeCreated
+
+        # Bilgileri ekrana yazdır
+        Write-Output "Kullanıcı: $user"
+        Write-Output "Kaynak IP Adresi: $sourceIP"
+        Write-Output "Tarih ve Saat: $time"
+        Write-Output "---------------------------"
+    }
+}
+catch {
+    Write-Output "Hata: $_"
+}
